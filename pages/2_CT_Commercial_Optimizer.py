@@ -1,11 +1,9 @@
 import streamlit as st
-import streamlit as st
-from core.ct_scraper import fetch_ct_offers_selenium
+from core.ct_scraper import fetch_ct_offers_df
 
-st.title("Connecticut Commercial Optimizer")
+st.title("CT – Eversource Business Offers")
 
-if st.button("Load Eversource CT Supplier Offers"):
-    with st.spinner("Fetching offers..."):
-        df = fetch_ct_offers_selenium()
-    st.success(f"Loaded {len(df)} offers.")
-    st.dataframe(df)
+if st.button("Fetch live offers"):
+    with st.spinner("Contacting EnergizeCT…"):
+        df = fetch_ct_offers_df()
+    st.write(df)
