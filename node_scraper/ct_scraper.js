@@ -1,13 +1,10 @@
 const { chromium } = require("playwright");
+const fs = require("fs");
 
-async function fetchCTOffers() {
+async function debugCT() {
     const browser = await chromium.launch({
-        headless: false,
-        args: [
-            "--disable-blink-features=AutomationControlled",
-            "--disable-web-security",
-            "--disable-features=IsolateOrigins,site-per-process"
-        ]
+        headless: false,   // MUST be false
+        slowMo: 150,       // Human-like interaction
     });
 
     const context = await browser.newContext({
@@ -25,60 +22,33 @@ async function fetchCTOffers() {
 
     await page.waitForTimeout(3000);
 
-    // Handle modal
-    try {
-        await page.click("text=Eversource Business", { timeout: 5000 });
-        await page.click("text=Search & Compare Rates", { timeout: 5000 });
-    } catch {}
+    // Scroll to modal buttons
+    await page.evaluate(() => window.scrollBy(0, 400));
 
-    await page.waitForTimeout(5000);
+    // Click Eversource Business using real mouse events
+    await page.locator("text=Eversource Business").click({ force: true });
 
-    // ⭐ DOM scraping using real card structure
-    const offers = await page.evaluate(() => {
-        // Each offer card has this class
-        const cards = Array.from(document.querySelectorAll(".rate-board__result"));
+    await page.waitForTimeout(2000);
 
-        return cards.map(card => {
-            const get = (selector) => {
-                const el = card.querySelector(selector);
-                return el ? el.innerText.trim() : null;
-            };
+    // Click Search & Compare Rates
+    await page.locator("text=Search & Compare Rates").click({ force: true });
 
-            // Supplier name
-            const supplier = get(".supplier-name, .supplier, .supplier__name");
+    // Wait for AJAX-loaded offer cards
+    await page.waitForSelector(".list-item--ect-card", { timeout: 20000 });
 
-            // Phone
-            const phoneMatch = card.innerText.match(/\(\d{3}\)\s*\d{3}-\d{4}/);
-            const phone = phoneMatch ? phoneMatch[0] : null;
+    // Extract offer section
+    const offerHTML = await page.evaluate(() => {
+        const container =
+            document.querySelector(".rate-board-results") ||
+            document.querySelector(".view-content") ||
+            document.body;
 
-            // Rate
-            const rateMatch = card.innerText.match(/([\d.]+)₵ per kWh/);
-            const rate = rateMatch ? parseFloat(rateMatch[1]) : null;
-
-            // Monthly cost
-            const monthlyMatch = card.innerText.match(/\$([\d.]+)\s+at/);
-            const monthly = monthlyMatch ? parseFloat(monthlyMatch[1]) : null;
-
-            // Term
-            const term = get(".plan-term, .term, .plan-description__term");
-
-            // Green %
-            const greenMatch = card.innerText.match(/([\d.]+)% RECs/);
-            const green = greenMatch ? parseFloat(greenMatch[1]) : null;
-
-            return {
-                supplier,
-                phone,
-                rate_cents_per_kwh: rate,
-                monthly_cost: monthly,
-                term,
-                green_pct: green
-            };
-        });
+        return container.innerHTML;
     });
 
-    console.log(JSON.stringify(offers, null, 2));
-    await browser.close();
+    fs.writeFileSync("ct_debug_section.html", offerHTML);
+
+    console.log("WROTE ct_debug_section.html — send me this file.");
 }
 
-fetchCTOffers();
+debugCT();

@@ -1,16 +1,10 @@
-import json
-import subprocess
+import requests
 import pandas as pd
 
-def _run_node_scraper():
-    result = subprocess.run(
-        ["node", "node_scraper/ct_scraper.js"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return json.loads(result.stdout)
+BASE_URL = "https://documents.dps.ny.gov/PTC/api/Service"
 
-def fetch_ct_offers_df() -> pd.DataFrame:
-    offers = _run_node_scraper()
-    return pd.DataFrame(offers)
+def fetch_offers(zip_code: str) -> pd.DataFrame:
+    url = f"{BASE_URL}/GetActiveOffersByZip/{zip_code}"
+    r = requests.get(url, timeout=10)
+    r.raise_for_status()
+    return pd.DataFrame(r.json())
